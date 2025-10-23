@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Paleta Pastel - Rosa Queimado, Bege, Verde Sálvia */
+    --background: 40 40% 95%;
+    --foreground: 25 30% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 25 30% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 30% 20%;
+
+    --primary: 345 45% 68%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 155 25% 75%;
+    --secondary-foreground: 25 30% 20%;
+
+    --muted: 40 35% 90%;
+    --muted-foreground: 25 20% 45%;
+
+    --accent: 40 38% 88%;
+    --accent-foreground: 25 30% 20%;
+
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 30% 85%;
+    --input: 40 30% 92%;
+    --ring: 345 45% 68%;
+
+    --radius: 0.75rem;
+    
+    /* Design tokens customizados */
+    --hero-overlay: 0 0% 0%;
+    --hero-overlay-opacity: 0.45;
+    
+    /* Sombras suaves */
+    --shadow-soft: 0 4px 20px -4px hsl(345 45% 68% / 0.15);
+    --shadow-hover: 0 8px 30px -6px hsl(345 45% 68% / 0.25);
+    
+    /* Transições */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 25 20% 12%;
+    --foreground: 40 35% 90%;
+
+    --card: 25 18% 15%;
+    --card-foreground: 40 35% 90%;
+
+    --popover: 25 18% 15%;
+    --popover-foreground: 40 35% 90%;
+
+    --primary: 345 45% 68%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 155 25% 45%;
+    --secondary-foreground: 40 35% 90%;
+
+    --muted: 25 15% 20%;
+    --muted-foreground: 40 20% 60%;
+
+    --accent: 25 15% 18%;
+    --accent-foreground: 40 35% 90%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 25 15% 25%;
+    --input: 25 15% 22%;
+    --ring: 345 45% 68%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Montserrat', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .shadow-hover {
+    box-shadow: var(--shadow-hover);
+  }
+  
+  .hover-lift {
+    @apply transition-smooth hover:scale-105 hover:shadow-hover;
+  }
+}
