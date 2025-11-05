@@ -7,6 +7,7 @@ import Signup from "./pages/Signup";
 import Admin from "./pages/Admin";
 import PublicView from "./pages/PublicView";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Signup />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/:slug/admin" element={<Admin />} />
           <Route path="/:slug" element={<PublicView />} />

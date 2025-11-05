@@ -11,6 +11,7 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { AppData } from '@/types';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { loadDataFromSupabase } from '@/lib/supabaseStorage';
+import { getAppBaseUrl } from '@/utils/appUrl';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -239,8 +240,11 @@ const Admin = () => {
       return;
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const baseUrl = getAppBaseUrl();
+    const redirectTo = `${baseUrl}/reset-password`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo,
     });
 
     if (error) {

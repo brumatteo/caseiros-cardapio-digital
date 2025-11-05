@@ -14,9 +14,6 @@ interface SettingsTabProps {
 }
 
 export function SettingsTab({ data, onDataChange, bakeryId }: SettingsTabProps) {
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
   // 🚀 Atualiza dados locais e no Supabase (sem notificação visual)
   const updateSettings = async (updates: Partial<typeof data.settings>) => {
     const newSettings = {
@@ -70,52 +67,7 @@ export function SettingsTab({ data, onDataChange, bakeryId }: SettingsTabProps) 
     }
   };
 
-  // 🧠 Função de alteração de senha usando Supabase Auth
-  const handlePasswordChange = async () => {
-    if (newPassword.length < 6) {
-      toast({
-        title: 'Senha muito curta',
-        description: 'A senha deve ter pelo menos 6 caracteres.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: 'Senhas não coincidem',
-        description: 'Por favor, confirme a senha corretamente.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Alterar senha via Supabase Auth de forma segura
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword
-    });
-
-    if (error) {
-      console.error('❌ Erro ao alterar senha:', error);
-      toast({
-        title: 'Erro ao alterar senha',
-        description: error.message || 'Não foi possível alterar a senha.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Limpar campos e confirmar sucesso
-    setNewPassword('');
-    setConfirmPassword('');
-
-    toast({
-      title: 'Senha alterada com sucesso!',
-      description: 'Use sua nova senha no próximo login.',
-    });
-  };
-
-  // 🔄 Campos de segurança e contato
+  // 🔄 Campos de contato
   return (
     <div className="space-y-6">
       <div>
@@ -149,33 +101,7 @@ export function SettingsTab({ data, onDataChange, bakeryId }: SettingsTabProps) 
         </div>
       </div>
 
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-semibold mb-4">Segurança</h3>
-
-        <div className="space-y-4">
-          <div>
-            <Label>Nova Senha</Label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-            />
-          </div>
-
-          <div>
-            <Label>Confirmar Nova Senha</Label>
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Digite novamente"
-            />
-          </div>
-
-          <Button onClick={handlePasswordChange}>Alterar Senha</Button>
-        </div>
-      </div>
+      {/* Seção de alteração de senha removida temporariamente para evitar conflitos */}
     </div>
   );
 }
