@@ -1,4 +1,4 @@
-import supabasePlano from '@/lib/supabasePlanoClient';
+import { supabasePlanoClient } from '@/lib/supabasePlanoClient';
 import { toast } from '@/hooks/use-toast';
 
 export async function validateEmailInSupabasePlano(email: string): Promise<boolean> {
@@ -6,9 +6,9 @@ export async function validateEmailInSupabasePlano(email: string): Promise<boole
   if (!normalizedEmail) return false;
 
   try {
-    const { data, error } = await supabasePlano
+    const { data, error } = await supabasePlanoClient
       .from('users_hub')
-      .select('*')
+      .select('email')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
