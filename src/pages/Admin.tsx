@@ -35,7 +35,14 @@ const Admin = () => {
         const decoded = decodeURIComponent(emailParam);
         const ok = await validateEmailInSupabasePlano(decoded);
         if (ok) {
-          localStorage.setItem('cardapio_auth_email', decoded.trim().toLowerCase());
+          // salvar sessão com timestamp (2h de inatividade)
+          const payload = {
+            email: decoded.trim().toLowerCase(),
+            ts: Date.now(),
+          };
+          localStorage.setItem('cardapio_auth', JSON.stringify(payload));
+          // remover legado se existir
+          localStorage.removeItem('cardapio_auth_email');
           // limpar param da URL
           const url = new URL(window.location.href);
           url.searchParams.delete('email');
@@ -53,12 +60,38 @@ const Admin = () => {
         return;
       }
 
-      // 2) Sessão local
-      const saved = localStorage.getItem('cardapio_auth_email');
-      if (saved) {
-        setHasAccess(true);
-        setIsCheckingAuth(false);
-        return;
+      // 2) Sessão local (migrar legado e checar expiração de 2h)
+      const LEGACY_KEY = 'cardapio_auth_email';
+      const KEY = 'cardapio_auth';
+      const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+      // migrar legado (valor era apenas email string)
+      const legacyEmail = localStorage.getItem(LEGACY_KEY);
+      if (legacyEmail) {
+        const payload = { email: legacyEmail.trim().toLowerCase(), ts: Date.now() };
+        localStorage.setItem(KEY, JSON.stringify(payload));
+        localStorage.removeItem(LEGACY_KEY);
+      }
+
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        try {
+          const session = JSON.parse(raw) as { email: string; ts: number };
+          if (session?.email && typeof session.ts === 'number') {
+            if (Date.now() - session.ts <= TWO_HOURS_MS) {
+              setHasAccess(true);
+              setIsCheckingAuth(false);
+              return;
+            } else {
+              // expirada
+              localStorage.removeItem(KEY);
+            }
+          } else {
+            localStorage.removeItem(KEY);
+          }
+        } catch {
+          localStorage.removeItem(KEY);
+        }
       }
 
       setIsCheckingAuth(false);
@@ -176,7 +209,11 @@ const Admin = () => {
     setIsLoading(true);
     const ok = await validateEmailInSupabasePlano(email);
     if (ok) {
-      localStorage.setItem('cardapio_auth_email', email.trim().toLowerCase());
+      const payload = {
+        email: email.trim().toLowerCase(),
+        ts: Date.now(),
+      };
+      localStorage.setItem('cardapio_auth', JSON.stringify(payload));
       setHasAccess(true);
       if (slug) {
         await loadUserData();
@@ -192,7 +229,7 @@ const Admin = () => {
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem('cardapio_auth_email');
+    localStorage.removeItem('cardapio_auth');
     toast({
       title: 'Sessão encerrada',
       description: 'Você saiu do painel administrativo.',
