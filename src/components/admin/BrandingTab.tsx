@@ -26,6 +26,19 @@ export function BrandingTab({ data, onDataChange, bakeryId }: BrandingTabProps) 
     
     // Salva no Supabase
     if (bakeryId) {
+      // Obter usuário autenticado para garantir RLS
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user?.id) {
+        console.error('❌ Erro ao obter usuário autenticado:', userError);
+        toast({
+          title: "Erro ao salvar",
+          description: "Usuário não autenticado.",
+          variant: "destructive"
+        });
+        return;
+      }
+      const userId = userData.user.id;
+
       const { error } = await supabase
         .from('bakeries')
         .update({ 
@@ -33,7 +46,8 @@ export function BrandingTab({ data, onDataChange, bakeryId }: BrandingTabProps) 
           confectionery_name: newSettings.brandName,
           updated_at: new Date().toISOString()
         })
-        .eq('id', bakeryId);
+        .eq('id', bakeryId)
+        .eq('user_id', userId);
         
       if (error) {
         console.error('❌ Erro ao salvar marca:', error);

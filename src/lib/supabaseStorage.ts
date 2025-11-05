@@ -5,6 +5,15 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
   try {
     console.log('💾 Iniciando salvamento no Supabase...', { bakeryId, data });
 
+    // Obter usuário autenticado para garantir RLS
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user?.id) {
+      console.error('❌ Erro ao obter usuário autenticado:', userError);
+      throw new Error('Usuário não autenticado');
+    }
+    const userId = userData.user.id;
+    console.log('✅ Usuário autenticado:', userId);
+
     // 1. Atualizar bakeries (settings)
     console.log('📝 Salvando settings completo:', JSON.stringify(data.settings, null, 2));
     
@@ -19,7 +28,8 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
     const { error: bakeryError } = await supabase
       .from('bakeries')
       .update(updateData)
-      .eq('id', bakeryId);
+      .eq('id', bakeryId)
+      .eq('user_id', userId);
 
     if (bakeryError) {
       console.error('❌ Erro ao atualizar bakery:', bakeryError);

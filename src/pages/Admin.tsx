@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,12 +11,13 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { AppData } from '@/types';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { loadDataFromSupabase } from '@/lib/supabaseStorage';
-import { validateEmailInSupabasePlano } from '@/lib/validateEmailPlano';
 
 const Admin = () => {
   const navigate = useNavigate();
   const { slug } = useParams<{ slug?: string }>();
+  const [user, setUser] = useState<User | null>(null);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [data, setData] = useState<AppData | null>(null);
@@ -27,90 +29,53 @@ const Admin = () => {
   useThemeColors(data?.settings || {} as any);
 
   useEffect(() => {
-    const bootstrap = async () => {
-      // 1) Auto-login via ?email=
-      const params = new URLSearchParams(window.location.search);
-      const emailParam = params.get('email');
-      if (emailParam) {
-        const decoded = decodeURIComponent(emailParam);
-        const ok = await validateEmailInSupabasePlano(decoded);
-        if (ok) {
-          // salvar sessão com timestamp (2h de inatividade)
-          const payload = {
-            email: decoded.trim().toLowerCase(),
-            ts: Date.now(),
-          };
-          localStorage.setItem('cardapio_auth', JSON.stringify(payload));
-          // remover legado se existir
-          localStorage.removeItem('cardapio_auth_email');
-          // limpar param da URL
-          const url = new URL(window.location.href);
-          url.searchParams.delete('email');
-          window.history.replaceState({}, '', url.toString());
-          setHasAccess(true);
-        } else {
-          toast({
-            title: 'E-mail não cadastrado',
-            description: 'Faça seu cadastro pelo seu Plano de Ação Interativo.',
-            variant: 'destructive',
-          });
-          setHasAccess(false);
-        }
+    // Check authentication status
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      
+      if (session?.user) {
+        await loadUserData(session.user.id);
+      } else {
         setIsCheckingAuth(false);
-        return;
-      }
-
-      // 2) Sessão local (migrar legado e checar expiração de 2h)
-      const LEGACY_KEY = 'cardapio_auth_email';
-      const KEY = 'cardapio_auth';
-      const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-
-      // migrar legado (valor era apenas email string)
-      const legacyEmail = localStorage.getItem(LEGACY_KEY);
-      if (legacyEmail) {
-        const payload = { email: legacyEmail.trim().toLowerCase(), ts: Date.now() };
-        localStorage.setItem(KEY, JSON.stringify(payload));
-        localStorage.removeItem(LEGACY_KEY);
-      }
-
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        try {
-          const session = JSON.parse(raw) as { email: string; ts: number };
-          if (session?.email && typeof session.ts === 'number') {
-            if (Date.now() - session.ts <= TWO_HOURS_MS) {
-              setHasAccess(true);
-              setIsCheckingAuth(false);
-              return;
-            } else {
-              // expirada
-              localStorage.removeItem(KEY);
-            }
-          } else {
-            localStorage.removeItem(KEY);
-          }
-        } catch {
-          localStorage.removeItem(KEY);
+        // Se não há usuário e há slug, redirecionar para login
+        if (slug) {
+          navigate('/admin');
         }
       }
-
+      
       setIsCheckingAuth(false);
     };
 
-    bootstrap();
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user || null);
+      
+      if (session?.user) {
+        await loadUserData(session.user.id);
+      } else {
+        setData(null);
+        setHasAccess(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [slug, navigate]);
 
-  const loadUserData = async () => {
+  const loadUserData = async (userId: string) => {
     try {
-      console.log('📥 Carregando dados para admin...', { slugFromUrl: slug });
+      console.log('📥 Carregando dados do usuário...', { userId, slugFromUrl: slug });
       
-      // Carregar bakery pelo slug (admin acessa sua própria loja pela URL)
+      // Se há slug na URL, verificar se o usuário tem acesso a essa confeitaria
       let bakery;
       if (slug) {
         const { data: bakeryData, error: bakeryError } = await supabase
           .from('bakeries')
           .select('*')
           .eq('slug', slug)
+          .eq('user_id', userId)
           .maybeSingle();
 
         if (bakeryError) {
@@ -126,12 +91,12 @@ const Admin = () => {
         }
 
         if (!bakeryData) {
-          console.warn('⚠️ Confeitaria não encontrada');
+          console.warn('⚠️ Acesso negado: usuário não é dono desta confeitaria');
           setIsCheckingAuth(false);
           setHasAccess(false);
           toast({
-            title: 'Confeitaria não encontrada',
-            description: 'Verifique o endereço /:slug/admin',
+            title: 'Acesso negado',
+            description: 'Você não tem permissão para acessar este painel',
             variant: 'destructive',
           });
           navigate('/');
@@ -140,13 +105,43 @@ const Admin = () => {
         
         bakery = bakeryData;
       } else {
-        // Requer slug para acessar admin
-        toast({
-          title: 'Endereço inválido',
-          description: 'Acesse o painel via /:slug/admin',
-          variant: 'destructive',
-        });
-        navigate('/');
+        // Se não há slug na URL, buscar a confeitaria do usuário
+        const { data: bakeryData, error: bakeryError } = await supabase
+          .from('bakeries')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (bakeryError) {
+          console.error('❌ Erro ao buscar bakery:', bakeryError);
+          setIsCheckingAuth(false);
+          setHasAccess(false);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível carregar dados da confeitaria',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        if (!bakeryData) {
+          console.warn('⚠️ Confeitaria não encontrada para o usuário');
+          setIsCheckingAuth(false);
+          setHasAccess(false);
+          toast({
+            title: 'Confeitaria não encontrada',
+            description: 'Por favor, complete o cadastro',
+            variant: 'destructive',
+          });
+          navigate('/');
+          return;
+        }
+        
+        bakery = bakeryData;
+        // Redirecionar para /:slug/admin apenas se não estamos já nessa rota
+        if (window.location.pathname !== `/${bakery.slug}/admin`) {
+          navigate(`/${bakery.slug}/admin`, { replace: true });
+        }
         return;
       }
 
@@ -207,28 +202,63 @@ const Admin = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    const ok = await validateEmailInSupabasePlano(email);
-    if (ok) {
-      const payload = {
-        email: email.trim().toLowerCase(),
-        ts: Date.now(),
-      };
-      localStorage.setItem('cardapio_auth', JSON.stringify(payload));
-      setHasAccess(true);
-      if (slug) {
-        await loadUserData();
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: 'Erro ao fazer login',
+          description: error.message === 'Invalid login credentials' 
+            ? 'Email ou senha incorretos' 
+            : error.message,
+          variant: 'destructive',
+        });
       }
-    } else {
+    } catch (error) {
       toast({
-        title: 'E-mail não cadastrado',
-        description: 'Faça seu cadastro pelo seu Plano de Ação Interativo.',
+        title: 'Erro',
+        description: 'Ocorreu um erro ao fazer login',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({
+        title: "Digite seu e-mail",
+        description: "Por favor, digite seu e-mail no campo acima para recuperar sua senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      toast({
+        title: "Erro ao enviar e-mail",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "E-mail enviado!",
+        description: "Enviamos um link de redefinição para o seu e-mail.",
+      });
+    }
   };
 
   const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('cardapio_auth');
     toast({
       title: 'Sessão encerrada',
@@ -257,7 +287,7 @@ const Admin = () => {
     );
   }
 
-  if (!hasAccess) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
         <div className="max-w-md w-full bg-card border rounded-lg p-8 shadow-lg">
@@ -287,16 +317,48 @@ const Admin = () => {
               />
             </div>
 
+            <div>
+              <label className="text-sm font-medium mb-1 block">Senha</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••"
+                disabled={isLoading}
+                required
+              />
+            </div>
+
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Validando...
+                  Entrando...
                 </>
               ) : (
-                'Acessar'
+                'Entrar'
               )}
             </Button>
+
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-sm text-primary hover:underline text-center w-full"
+              disabled={isLoading}
+            >
+              Esqueci minha senha
+            </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="text-sm text-primary hover:underline"
+                disabled={isLoading}
+              >
+                Criar uma conta
+              </button>
+            </div>
           </form>
         </div>
       </div>
