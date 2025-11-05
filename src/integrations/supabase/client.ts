@@ -10,4 +10,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// StorageKey exclusiva para este projeto para evitar conflitos com outros apps no mesmo domínio
+const STORAGE_KEY = 'caseiros-cardapio-digital-supabase';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storageKey: STORAGE_KEY,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});

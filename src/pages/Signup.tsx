@@ -67,11 +67,28 @@ export default function Signup() {
 
       // Sign up the user
       console.log('🔐 Criando usuário no Auth...');
+      
+      // Obter URL base validada do app
+      const { getAppBaseUrl, isValidAppUrl } = await import('@/utils/appUrl');
+      const baseUrl = getAppBaseUrl();
+      const redirectUrl = `${baseUrl}/admin`;
+      
+      // Validar URL antes de usar
+      if (!isValidAppUrl(redirectUrl)) {
+        toast({
+          title: 'Erro de segurança',
+          description: 'URL de redirecionamento inválida. Entre em contato com o suporte.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/admin`,
+          emailRedirectTo: redirectUrl,
         },
       });
 

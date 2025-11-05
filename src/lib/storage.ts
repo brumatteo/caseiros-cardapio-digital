@@ -10,7 +10,8 @@ import coberturaWhiteImg from '@/assets/cobertura-brigadeiro-branco.jpg';
 import coberturaTradicionalImg from '@/assets/cobertura-brigadeiro-tradicional.jpg';
 import coberturaCocoImg from '@/assets/cobertura-coco.jpg';
 
-const STORAGE_KEY = 'bolos-caseirinhos-data';
+// StorageKey exclusiva para este projeto para evitar conflitos com outros apps no mesmo domínio
+const STORAGE_KEY = 'caseiros-cardapio-digital-data';
 
 const defaultSettings: SiteSettings = {
   brandName: 'Bolos Caseirinhos',

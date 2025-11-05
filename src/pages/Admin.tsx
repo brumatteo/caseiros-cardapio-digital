@@ -11,7 +11,7 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { AppData } from '@/types';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { loadDataFromSupabase } from '@/lib/supabaseStorage';
-import { getAppBaseUrl } from '@/utils/appUrl';
+import { getAppBaseUrl, isValidAppUrl } from '@/utils/appUrl';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -242,6 +242,16 @@ const Admin = () => {
 
     const baseUrl = getAppBaseUrl();
     const redirectTo = `${baseUrl}/reset-password`;
+    
+    // Validar URL antes de usar
+    if (!isValidAppUrl(redirectTo)) {
+      toast({
+        title: "Erro de segurança",
+        description: "URL de redirecionamento inválida. Entre em contato com o suporte.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo,
@@ -263,7 +273,8 @@ const Admin = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('cardapio_auth');
+    // Limpar qualquer dado local relacionado à autenticação deste app
+    // (storageKey exclusiva do Supabase já garante isolamento)
     toast({
       title: 'Sessão encerrada',
       description: 'Você saiu do painel administrativo.',
