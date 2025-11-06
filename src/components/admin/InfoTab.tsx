@@ -199,12 +199,15 @@ export function InfoTab({ data, onDataChange, bakeryId }: InfoTabProps) {
           </div>
 
           <div>
-            <Label>Instagram (URL completa, opcional)</Label>
+            <Label>Instagram (opcional)</Label>
             <Input
               value={data.settings.instagramUrl || ''}
               onChange={(e) => updateSettings({ instagramUrl: e.target.value })}
-              placeholder="https://instagram.com/seu_perfil"
+              placeholder="Instagram (opcional)"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Digite apenas o @perfil ou o nome do perfil (ex: @bolosdapaty ou bolosdapaty)
+            </p>
           </div>
         </div>
       </div>

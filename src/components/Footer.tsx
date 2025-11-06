@@ -27,16 +27,10 @@ export function Footer({ settings }: FooterProps) {
             )}
             
             {settings.instagramUrl && (
-              <a 
-                href={settings.instagramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-smooth"
-                aria-label="Instagram"
-              >
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Instagram className="h-5 w-5" />
-                <span>Instagram</span>
-              </a>
+                <span>{settings.instagramUrl}</span>
+              </div>
             )}
           </div>
           
@@ -44,7 +38,7 @@ export function Footer({ settings }: FooterProps) {
           {settings.footerText && (
             <div className="border-t border-border pt-4 w-full text-center">
               <p className="text-sm text-muted-foreground">
-                {settings.footerText}
+                © {settings.footerText}
               </p>
             </div>
           )}
