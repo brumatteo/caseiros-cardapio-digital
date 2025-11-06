@@ -272,14 +272,54 @@ const Admin = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    // Limpar qualquer dado local relacionado à autenticação deste app
-    // (storageKey exclusiva do Supabase já garante isolamento)
-    toast({
-      title: 'Sessão encerrada',
-      description: 'Você saiu do painel administrativo.',
-    });
-    navigate('/');
+    try {
+      // 1. Encerrar sessão do Supabase
+      const { error: signOutError } = await supabase.auth.signOut();
+      
+      if (signOutError) {
+        console.error('❌ Erro ao fazer logout:', signOutError);
+        toast({
+          title: 'Erro ao sair',
+          description: 'Não foi possível encerrar a sessão. Tente novamente.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // 2. Limpar localStorage relacionado ao Supabase (storageKey exclusiva)
+      const STORAGE_KEY = 'caseiros-cardapio-digital-supabase';
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {
+        console.warn('⚠️ Erro ao limpar localStorage:', e);
+      }
+
+      // 3. Limpar estados locais do componente
+      setUser(null);
+      setData(null);
+      setUserSlug('');
+      setBakeryId('');
+      setHasAccess(false);
+      setEmail('');
+      setPassword('');
+
+      // 4. Mostrar notificação de sucesso
+      toast({
+        title: 'Sessão encerrada',
+        description: 'Você saiu do painel administrativo.',
+      });
+
+      // 5. Redirecionar para a página de login
+      // Usar replace para evitar voltar ao admin com back button
+      navigate('/admin', { replace: true });
+    } catch (error) {
+      console.error('❌ Erro inesperado no logout:', error);
+      toast({
+        title: 'Erro ao sair',
+        description: 'Ocorreu um erro inesperado. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDataChange = async (newData: AppData) => {
