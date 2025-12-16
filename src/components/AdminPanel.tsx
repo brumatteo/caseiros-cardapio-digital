@@ -23,6 +23,8 @@ interface AdminPanelProps {
   userSlug?: string;
   bakeryId?: string;
   onViewSite?: () => void;
+  onManualSaveStart?: () => void;
+  onManualSaveEnd?: (success: boolean) => void;
 }
 export function AdminPanel({
   isOpen,
@@ -32,7 +34,9 @@ export function AdminPanel({
   onLogout,
   userSlug,
   bakeryId,
-  onViewSite
+  onViewSite,
+  onManualSaveStart,
+  onManualSaveEnd
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState('branding');
   const [isSaving, setIsSaving] = useState(false);
@@ -46,9 +50,11 @@ export function AdminPanel({
         description: "ID da confeitaria não encontrado.",
         variant: "destructive"
       });
+      onManualSaveEnd?.(false);
       return;
     }
 
+    onManualSaveStart?.();
     setIsSaving(true);
     console.log('🔄 Iniciando salvamento...', { bakeryId, data });
     
@@ -62,6 +68,7 @@ export function AdminPanel({
           description: "Não foi possível salvar as alterações. Verifique o console para detalhes.",
           variant: "destructive"
         });
+        onManualSaveEnd?.(false);
         setIsSaving(false);
         return;
       }
@@ -71,6 +78,7 @@ export function AdminPanel({
         title: "Salvo com sucesso!",
         description: "Suas alterações foram salvas no banco de dados."
       });
+      onManualSaveEnd?.(true);
     } catch (error) {
       console.error('❌ Erro ao salvar:', error);
       toast({
@@ -78,6 +86,7 @@ export function AdminPanel({
         description: "Ocorreu um erro inesperado. Verifique o console para detalhes.",
         variant: "destructive"
       });
+      onManualSaveEnd?.(false);
     } finally {
       setIsSaving(false);
     }

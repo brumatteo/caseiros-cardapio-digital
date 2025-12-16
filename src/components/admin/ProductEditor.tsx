@@ -120,15 +120,6 @@ export function ProductEditor({
 
           <div className="space-y-2">
             {sizes.map((size, index) => <div key={size.id} className="flex items-center gap-2 bg-background p-2 rounded">
-                <div className="flex flex-col gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => handleMoveSize(index, 'up')} disabled={index === 0} className="h-6 w-6">
-                    <ArrowUp className="h-3 w-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleMoveSize(index, 'down')} disabled={index === sizes.length - 1} className="h-6 w-6">
-                    <ArrowDown className="h-3 w-3" />
-                  </Button>
-                </div>
-
                 <Input placeholder="Nome (ex: Pequeno 15cm)" value={size.name} onChange={e => handleUpdateSize(index, 'name', e.target.value)} className="flex-1" />
                 <Input type="number" placeholder="Preço" value={size.price || ''} onChange={e => handleUpdateSize(index, 'price', parseFloat(e.target.value) || 0)} className="w-24" step="0.01" />
                 {sizes.length > 1 && <Button variant="ghost" size="icon" onClick={() => handleRemoveSize(index)}>

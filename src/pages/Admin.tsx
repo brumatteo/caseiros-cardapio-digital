@@ -28,6 +28,7 @@ const Admin = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [isAutosaveEnabled, setIsAutosaveEnabled] = useState(true);
 
   // Apply theme colors - call hook at top level
   useThemeColors(data?.settings || {} as any);
@@ -404,6 +405,9 @@ const Admin = () => {
     // Não disparar autosave se dados acabaram de ser carregados e ainda não foram modificados
     if (!isDirty) return;
 
+    // Não rodar autosave se estiver desativado (ex: após falha)
+    if (!isAutosaveEnabled) return;
+
     const timeout = setTimeout(async () => {
       try {
         // Evitar chamadas concorrentes
@@ -417,12 +421,8 @@ const Admin = () => {
 
         if (!saved) {
           console.error('❌ Autosave falhou');
-          toast({
-            title: 'Erro ao salvar automaticamente',
-            description:
-              'Não foi possível salvar suas alterações. Elas continuam visíveis aqui, mas tente clicar em "Salvar alterações" em alguns instantes.',
-            variant: 'destructive',
-          });
+          // Desativar autosave até um salvamento manual bem-sucedido
+          setIsAutosaveEnabled(false);
           return;
         }
 
@@ -431,19 +431,15 @@ const Admin = () => {
         console.log('✅ Autosave concluído com sucesso');
       } catch (error) {
         console.error('❌ Erro inesperado no autosave:', error);
-        toast({
-          title: 'Erro ao salvar automaticamente',
-          description:
-            'Ocorreu um erro inesperado ao salvar suas alterações. Tente novamente em alguns instantes.',
-          variant: 'destructive',
-        });
+        // Desativar autosave até um salvamento manual bem-sucedido
+        setIsAutosaveEnabled(false);
       } finally {
         setIsSaving(false);
       }
     }, 800);
 
     return () => clearTimeout(timeout);
-  }, [data, bakeryId, isDirty, isSaving, toast]);
+  }, [data, bakeryId, isDirty, isSaving, isAutosaveEnabled]);
 
   const handleCloseAdmin = () => {
     if (userSlug) {
@@ -557,6 +553,21 @@ const Admin = () => {
       userSlug={userSlug}
       bakeryId={bakeryId}
       onViewSite={handleViewSiteAndLogout}
+      onManualSaveStart={() => {
+        // Bloquear autosave enquanto o salvamento manual estiver em andamento
+        setIsSaving(true);
+      }}
+      onManualSaveEnd={(success) => {
+        // Liberar novamente após o término do salvamento manual
+        setIsSaving(false);
+
+        if (success) {
+          // Reabilitar autosave e limpar estado de sujeira/último salvamento
+          setIsAutosaveEnabled(true);
+          setIsDirty(false);
+          setLastSavedAt(new Date());
+        }
+      }}
     />
   );
 };
