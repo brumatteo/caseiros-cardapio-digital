@@ -1,12 +1,31 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AppData } from '@/types';
 
+// Helper para adicionar timeout em queries
+async function queryWithTimeout<T>(
+  queryPromise: Promise<T>,
+  timeoutMs: number = 15000,
+  operationName: string = 'Query'
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Timeout: ${operationName} demorou mais de ${timeoutMs/1000}s`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([queryPromise, timeoutPromise]);
+}
+
 export async function saveDataToSupabase(data: AppData, bakeryId: string): Promise<boolean> {
   try {
     console.log('💾 Iniciando salvamento no Supabase...', { bakeryId, data });
 
     // Obter usuário autenticado para garantir RLS
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await queryWithTimeout(
+      supabase.auth.getUser(),
+      15000,
+      'getUser'
+    );
     if (userError || !userData?.user?.id) {
       console.error('❌ Erro ao obter usuário autenticado:', userError);
       throw new Error('Usuário não autenticado');
@@ -25,11 +44,15 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
     
     console.log('📝 Dados que serão atualizados na tabela bakeries:', updateData);
     
-    const { error: bakeryError } = await supabase
-      .from('bakeries')
-      .update(updateData)
-      .eq('id', bakeryId)
-      .eq('user_id', userId);
+    const { error: bakeryError } = await queryWithTimeout(
+      supabase
+        .from('bakeries')
+        .update(updateData)
+        .eq('id', bakeryId)
+        .eq('user_id', userId),
+      15000,
+      'update bakeries'
+    );
 
     if (bakeryError) {
       console.error('❌ Erro ao atualizar bakery:', bakeryError);
@@ -44,10 +67,14 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
     });
 
     // 2. Deletar produtos antigos e inserir novos
-    const { error: deleteProductsError } = await supabase
-      .from('products')
-      .delete()
-      .eq('bakery_id', bakeryId);
+    const { error: deleteProductsError } = await queryWithTimeout(
+      supabase
+        .from('products')
+        .delete()
+        .eq('bakery_id', bakeryId),
+      15000,
+      'delete products'
+    );
 
     if (deleteProductsError) {
       console.error('❌ Erro ao deletar produtos antigos:', deleteProductsError);
@@ -69,9 +96,13 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
         product_order: product.order || 0,
       }));
 
-      const { error: productsError } = await supabase
-        .from('products')
-        .insert(productsToInsert);
+      const { error: productsError } = await queryWithTimeout(
+        supabase
+          .from('products')
+          .insert(productsToInsert),
+        15000,
+        'insert products'
+      );
 
       if (productsError) {
         console.error('❌ Erro ao inserir produtos:', productsError);
@@ -81,10 +112,14 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
     }
 
     // 3. Deletar extras antigos e inserir novos
-    const { error: deleteExtrasError } = await supabase
-      .from('extras')
-      .delete()
-      .eq('bakery_id', bakeryId);
+    const { error: deleteExtrasError } = await queryWithTimeout(
+      supabase
+        .from('extras')
+        .delete()
+        .eq('bakery_id', bakeryId),
+      15000,
+      'delete extras'
+    );
 
     if (deleteExtrasError) {
       console.error('❌ Erro ao deletar extras antigos:', deleteExtrasError);
@@ -102,9 +137,13 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
         extra_order: extra.order || 0,
       }));
 
-      const { error: extrasError } = await supabase
-        .from('extras')
-        .insert(extrasToInsert);
+      const { error: extrasError } = await queryWithTimeout(
+        supabase
+          .from('extras')
+          .insert(extrasToInsert),
+        15000,
+        'insert extras'
+      );
 
       if (extrasError) {
         console.error('❌ Erro ao inserir extras:', extrasError);
@@ -114,10 +153,14 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
     }
 
     // 4. Deletar sections antigas e inserir novas
-    const { error: deleteSectionsError } = await supabase
-      .from('sections')
-      .delete()
-      .eq('bakery_id', bakeryId);
+    const { error: deleteSectionsError } = await queryWithTimeout(
+      supabase
+        .from('sections')
+        .delete()
+        .eq('bakery_id', bakeryId),
+      15000,
+      'delete sections'
+    );
 
     if (deleteSectionsError) {
       console.error('❌ Erro ao deletar sections antigas:', deleteSectionsError);
@@ -135,9 +178,13 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
         product_ids: section.productIds || [],
       }));
 
-      const { error: sectionsError } = await supabase
-        .from('sections')
-        .insert(sectionsToInsert);
+      const { error: sectionsError } = await queryWithTimeout(
+        supabase
+          .from('sections')
+          .insert(sectionsToInsert),
+        15000,
+        'insert sections'
+      );
 
       if (sectionsError) {
         console.error('❌ Erro ao inserir sections:', sectionsError);
@@ -147,10 +194,14 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
     }
 
     // 5. Deletar tags antigas e inserir novas
-    const { error: deleteTagsError } = await supabase
-      .from('tags')
-      .delete()
-      .eq('bakery_id', bakeryId);
+    const { error: deleteTagsError } = await queryWithTimeout(
+      supabase
+        .from('tags')
+        .delete()
+        .eq('bakery_id', bakeryId),
+      15000,
+      'delete tags'
+    );
 
     if (deleteTagsError) {
       console.error('❌ Erro ao deletar tags antigas:', deleteTagsError);
@@ -167,9 +218,13 @@ export async function saveDataToSupabase(data: AppData, bakeryId: string): Promi
         emoji: tag.emoji,
       }));
 
-      const { error: tagsError } = await supabase
-        .from('tags')
-        .insert(tagsToInsert);
+      const { error: tagsError } = await queryWithTimeout(
+        supabase
+          .from('tags')
+          .insert(tagsToInsert),
+        15000,
+        'insert tags'
+      );
 
       if (tagsError) {
         console.error('❌ Erro ao inserir tags:', tagsError);

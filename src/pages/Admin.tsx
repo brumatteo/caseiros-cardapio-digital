@@ -25,27 +25,65 @@ const Admin = () => {
   const [userSlug, setUserSlug] = useState<string>('');
   const [bakeryId, setBakeryId] = useState<string>('');
   const [hasAccess, setHasAccess] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // Apply theme colors - call hook at top level
   useThemeColors(data?.settings || {} as any);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    
     // Check authentication status
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      
-      if (session?.user) {
-        await loadUserData(session.user.id);
-      } else {
-        setIsCheckingAuth(false);
-        // Se não há usuário e há slug, redirecionar para login
-        if (slug) {
-          navigate('/admin');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+        
+        if (!session) {
+          setIsCheckingAuth(false);
+          // Se não há usuário e há slug, redirecionar para login
+          if (slug) {
+            navigate('/admin');
+          }
+          return;
         }
+        
+        // ADICIONAR TIMEOUT DE 10 SEGUNDOS:
+        timeoutId = setTimeout(() => {
+          console.log('⏱️ Timeout de 10s - redirecionando para login');
+          setIsCheckingAuth(false);
+          navigate('/login');
+        }, 10000);
+        
+        // Carregar com timeout forçado
+        const loadPromise = loadUserData(session.user.id, slug);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout')), 10000);
+        });
+
+        try {
+          await Promise.race([loadPromise, timeoutPromise]);
+          // Sucesso - cancelar timeout do redirecionamento
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+        } catch (err) {
+          // Timeout ou erro - o timeoutId já vai redirecionar
+          console.log('⏱️ Erro ou timeout ao carregar');
+        }
+        setIsCheckingAuth(false);
+        
+      } catch (error) {
+        console.error('Erro:', error);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        setIsCheckingAuth(false);
+        navigate('/login');
       }
-      
-      setIsCheckingAuth(false);
     };
 
     checkAuth();
@@ -55,17 +93,37 @@ const Admin = () => {
       setUser(session?.user || null);
       
       if (session?.user) {
-        await loadUserData(session.user.id);
+        await loadUserData(session.user.id, slug);
       } else {
         setData(null);
         setHasAccess(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      subscription.unsubscribe();
+    };
   }, [slug, navigate]);
 
-  const loadUserData = async (userId: string) => {
+  // Timeout de segurança: após 10 segundos, se ainda estiver em loading ou sem dados, redirecionar para login
+  useEffect(() => {
+    // Só criar timeout se estiver em condições de loading ou sem dados
+    if (isCheckingAuth || (user && (!data || !hasAccess))) {
+      const safetyTimeout = setTimeout(() => {
+        // Verificar valores atuais no momento da execução
+        if (isCheckingAuth || (user && (!data || !hasAccess))) {
+          navigate('/admin', { replace: true });
+        }
+      }, 10000);
+
+      return () => clearTimeout(safetyTimeout);
+    }
+  }, [isCheckingAuth, user, data, hasAccess, navigate]);
+
+  const loadUserData = async (userId: string, slug?: string) => {
     try {
       console.log('📥 Carregando dados do usuário...', { userId, slugFromUrl: slug });
       
@@ -302,6 +360,8 @@ const Admin = () => {
       setHasAccess(false);
       setEmail('');
       setPassword('');
+      setIsDirty(false);
+      setIsSaving(false);
 
       // 4. Mostrar notificação de sucesso
       toast({
@@ -322,9 +382,68 @@ const Admin = () => {
     }
   };
 
+  const handleViewSiteAndLogout = async () => {
+    // 1. Abrir o site público em nova aba (não depende de sessão autenticada)
+    if (userSlug) {
+      window.open(`/${userSlug}`, '_blank');
+    }
+
+    // 2. Reaproveitar a lógica de logout existente para encerrar sessão e redirecionar
+    await handleLogout();
+  };
+
   const handleDataChange = async (newData: AppData) => {
     setData(newData);
+    setIsDirty(true);
   };
+
+  // Autosave com debounce baseado em mudanças nos dados
+  useEffect(() => {
+    if (!data || !bakeryId) return;
+
+    // Não disparar autosave se dados acabaram de ser carregados e ainda não foram modificados
+    if (!isDirty) return;
+
+    const timeout = setTimeout(async () => {
+      try {
+        // Evitar chamadas concorrentes
+        if (isSaving) return;
+
+        setIsSaving(true);
+        console.log('💾 Autosave iniciando para bakeryId:', bakeryId);
+
+        const { saveDataToSupabase } = await import('@/lib/supabaseStorage');
+        const saved = await saveDataToSupabase(data, bakeryId);
+
+        if (!saved) {
+          console.error('❌ Autosave falhou');
+          toast({
+            title: 'Erro ao salvar automaticamente',
+            description:
+              'Não foi possível salvar suas alterações. Elas continuam visíveis aqui, mas tente clicar em "Salvar alterações" em alguns instantes.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        setIsDirty(false);
+        setLastSavedAt(new Date());
+        console.log('✅ Autosave concluído com sucesso');
+      } catch (error) {
+        console.error('❌ Erro inesperado no autosave:', error);
+        toast({
+          title: 'Erro ao salvar automaticamente',
+          description:
+            'Ocorreu um erro inesperado ao salvar suas alterações. Tente novamente em alguns instantes.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [data, bakeryId, isDirty, isSaving, toast]);
 
   const handleCloseAdmin = () => {
     if (userSlug) {
@@ -437,6 +556,7 @@ const Admin = () => {
       onLogout={handleLogout}
       userSlug={userSlug}
       bakeryId={bakeryId}
+      onViewSite={handleViewSiteAndLogout}
     />
   );
 };
